@@ -1,0 +1,23 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/recommendations.py",
+      "use": "@vercel/python"
+    },
+    {
+      "src": "public/**",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    { "src": "/api/recommendations", "dest": "/api/recommendations.py" },
+    { "src": "/", "dest": "/public/index.html" },
+    { "src": "/(.*)", "dest": "/public/$1" }
+  ],
+  "functions": {
+    "api/recommendations.py": {
+      "maxDuration": 30
+    }
+  }
+}

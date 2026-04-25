@@ -1,0 +1,36 @@
+# ⚠️ קריטי: מונע העלאה של מפתחות API
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Vercel
+.vercel
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+
+# קבצים מקומיים מהגרסה הקודמת
+my_artists.json
+music_recommendations.txt
+music_app.py
+music_app.html

@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Music Recommender — גילוי מוזיקה אישי</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-deep: #0a0610;
+      --bg-card: rgba(20, 12, 30, 0.6);
+      --border: rgba(168, 85, 247, 0.2);
+      --pink: #ec4899;
+      --purple: #a855f7;
+      --text: #f5f3ff;
+      --text-dim: #a1a1aa;
+      --danger: #ef4444;
+    }
+
+    body {
+      font-family: 'Heebo', sans-serif;
+      background: var(--bg-deep);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* רקע עם הילות */
+    body::before, body::after {
+      content: '';
+      position: fixed;
+      width: 600px;
+      height: 600px;
+      border-radius: 50%;
+      filter: blur(120px);
+      opacity: 0.3;
+      pointer-events: none;
+      z-index: 0;
+    }
+    body::before {
+      background: var(--pink);
+      top: -200px;
+      right: -200px;
+    }
+    body::after {
+      background: var(--purple);
+      bottom: -200px;
+      left: -200px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+    header h1 {
+      font-size: 3rem;
+      font-weight: 900;
+      background: linear-gradient(135deg, var(--pink), var(--purple));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      margin-bottom: 0.5rem;
+    }
+    header p {
+      color: var(--text-dim);
+      font-size: 1.1rem;
+    }
+
+    .panel {
+      background: var(--bg-card);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--border);
+      border-radius: 1.5rem;
+      padding: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .panel h2 {
+      font-size: 1.3rem;
+      margin-bottom: 1.25rem;
+      font-weight: 700;
+    }
+
+    /* קלט הוספת אמן */
+    .add-row {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+    input[type="text"] {
+      flex: 1;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.85rem 1.25rem;
+      border-radius: 0.75rem;
+      font-size: 1rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input[type="text"]:focus {
+      border-color: var(--pink);
+    }
+    input[type="text"]::placeholder {
+      color: var(--text-dim);
+    }
+
+    button {
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 700;
+      border: none;
+      border-radius: 0.75rem;
+      padding: 0.85rem 1.5rem;
+      font-size: 1rem;
+      transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+    }
+    button:active {
+      transform: scale(0.97);
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--pink), var(--purple));
+      color: white;
+      box-shadow: 0 4px 20px rgba(236, 72, 153, 0.4);
+    }
+    .btn-primary:hover:not(:disabled) {
+      box-shadow: 0 6px 30px rgba(236, 72, 153, 0.6);
+    }
+
+    .btn-secondary {
+      background: rgba(168, 85, 247, 0.15);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    /* תגיות אמנים */
+    .artists-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      min-height: 2.5rem;
+    }
+    .artist-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(168, 85, 247, 0.15);
+      border: 1px solid var(--border);
+      padding: 0.4rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.9rem;
+    }
+    .artist-tag .remove {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: 1.1rem;
+      line-height: 1;
+      padding: 0;
+      transition: color 0.15s;
+    }
+    .artist-tag .remove:hover {
+      color: var(--danger);
+    }
+
+    .empty-state {
+      color: var(--text-dim);
+      font-size: 0.9rem;
+      padding: 0.5rem 0;
+    }
+
+    /* כפתור ייצור המלצות */
+    .generate-row {
+      text-align: center;
+      margin: 2rem 0;
+    }
+    .generate-row button {
+      font-size: 1.1rem;
+      padding: 1rem 3rem;
+    }
+
+    /* תצוגת המלצות */
+    .recs-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 1.25rem;
+    }
+    .rec-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      overflow: hidden;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .rec-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--pink);
+    }
+
+    .rec-image {
+      width: 100%;
+      height: 180px;
+      background: linear-gradient(135deg, rgba(236, 72, 153, 0.3), rgba(168, 85, 247, 0.3));
+      background-size: cover;
+      background-position: center;
+      position: relative;
+    }
+    .rec-rank {
+      position: absolute;
+      top: 0.75rem;
+      right: 0.75rem;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(10px);
+      padding: 0.25rem 0.6rem;
+      border-radius: 9999px;
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+
+    .rec-body {
+      padding: 1.25rem;
+    }
+    .rec-name {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+    .rec-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.3rem;
+      margin-bottom: 0.75rem;
+    }
+    .rec-tag {
+      background: rgba(168, 85, 247, 0.2);
+      padding: 0.15rem 0.5rem;
+      border-radius: 0.4rem;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+    .rec-similar {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      margin-bottom: 0.75rem;
+    }
+    .rec-tracks {
+      margin-bottom: 1rem;
+    }
+    .rec-tracks h4 {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      margin-bottom: 0.4rem;
+    }
+    .rec-tracks ul {
+      list-style: none;
+      font-size: 0.85rem;
+    }
+    .rec-tracks li {
+      padding: 0.2rem 0;
+      color: var(--text);
+    }
+    .rec-actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+    .rec-actions a {
+      flex: 1;
+      text-align: center;
+      padding: 0.5rem;
+      border-radius: 0.5rem;
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 500;
+      transition: opacity 0.15s;
+    }
+    .rec-actions a:hover {
+      opacity: 0.85;
+    }
+    .btn-spotify { background: #1DB954; color: white; }
+    .btn-soundcloud { background: #FF5500; color: white; }
+
+    /* loader */
+    .loader {
+      text-align: center;
+      padding: 3rem;
+      color: var(--text-dim);
+    }
+    .loader-spinner {
+      display: inline-block;
+      width: 50px;
+      height: 50px;
+      border: 4px solid var(--border);
+      border-top-color: var(--pink);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 1rem;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .error-msg {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid var(--danger);
+      color: #fecaca;
+      padding: 1rem;
+      border-radius: 0.75rem;
+      margin: 1rem 0;
+    }
+
+    @media (max-width: 600px) {
+      header h1 { font-size: 2rem; }
+      .add-row { flex-direction: column; }
+      .panel { padding: 1.25rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🎵 Music Recommender</h1>
+      <p>גילוי מוזיקה חדשה מבוסס על הטעם האישי שלך</p>
+    </header>
+
+    <div class="panel">
+      <h2>האמנים שאתה אוהב</h2>
+      <div class="add-row">
+        <input type="text" id="artistInput" placeholder="הוסף שם של אמן (לדוגמה: Adam Ten)" maxlength="100" />
+        <button class="btn-secondary" id="addBtn">הוסף</button>
+      </div>
+      <div class="artists-list" id="artistsList"></div>
+    </div>
+
+    <div class="generate-row">
+      <button class="btn-primary" id="generateBtn">✨ גלה לי מוזיקה חדשה</button>
+    </div>
+
+    <div id="results"></div>
+  </div>
+
+  <script>
+    // =========================================================================
+    // State management - localStorage לשמירה בין סשנים
+    // =========================================================================
+    const STORAGE_KEY = 'music_app_artists';
+    const DEFAULT_ARTISTS = [
+      'Adam Ten', 'Mita Gami', 'Maccabi House',
+      'Darco', 'Dodi', 'Yamagucci'
+    ];
+
+    function loadArtists() {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) return JSON.parse(stored);
+      } catch (e) { /* ignore */ }
+      return [...DEFAULT_ARTISTS];
+    }
+
+    function saveArtists(artists) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(artists));
+      } catch (e) { /* ignore */ }
+    }
+
+    let artists = loadArtists();
+
+    // =========================================================================
+    // UI rendering
+    // =========================================================================
+    function renderArtists() {
+      const list = document.getElementById('artistsList');
+      if (artists.length === 0) {
+        list.innerHTML = '<div class="empty-state">הרשימה ריקה — הוסף אמנים כדי להתחיל</div>';
+        return;
+      }
+      list.innerHTML = artists.map((a, i) => `
+        <span class="artist-tag">
+          ${escapeHtml(a)}
+          <button class="remove" data-index="${i}" aria-label="הסר ${escapeHtml(a)}">×</button>
+        </span>
+      `).join('');
+
+      list.querySelectorAll('.remove').forEach(btn => {
+        btn.onclick = () => {
+          const i = parseInt(btn.dataset.index);
+          artists.splice(i, 1);
+          saveArtists(artists);
+          renderArtists();
+        };
+      });
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+      })[c]);
+    }
+
+    function addArtist(name) {
+      name = (name || '').trim();
+      if (!name) return;
+      if (name.length > 100) {
+        showError('שם ארוך מדי');
+        return;
+      }
+      if (artists.some(a => a.toLowerCase() === name.toLowerCase())) {
+        showError('האמן כבר ברשימה');
+        return;
+      }
+      if (artists.length >= 30) {
+        showError('הגעת למקסימום של 30 אמנים');
+        return;
+      }
+      artists.push(name);
+      saveArtists(artists);
+      renderArtists();
+    }
+
+    function showError(msg) {
+      const results = document.getElementById('results');
+      results.innerHTML = `<div class="error-msg">${escapeHtml(msg)}</div>`;
+      setTimeout(() => {
+        if (results.innerHTML.includes(msg)) results.innerHTML = '';
+      }, 3000);
+    }
+
+    // =========================================================================
+    // API call
+    // =========================================================================
+    async function getRecommendations() {
+      if (artists.length === 0) {
+        showError('הוסף לפחות אמן אחד לפני גילוי');
+        return;
+      }
+
+      const btn = document.getElementById('generateBtn');
+      const results = document.getElementById('results');
+      btn.disabled = true;
+      results.innerHTML = `
+        <div class="loader">
+          <div class="loader-spinner"></div>
+          <div>סורק את עולם המוזיקה...</div>
+          <div style="font-size: 0.85rem; margin-top: 0.5rem;">זה לוקח 15-30 שניות</div>
+        </div>
+      `;
+
+      try {
+        const response = await fetch('/api/recommendations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ artists })
+        });
+
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.error || `שגיאת שרת (${response.status})`);
+        }
+
+        const data = await response.json();
+        renderRecommendations(data.recommendations || []);
+      } catch (e) {
+        results.innerHTML = `<div class="error-msg">שגיאה: ${escapeHtml(e.message)}</div>`;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function renderRecommendations(recs) {
+      const results = document.getElementById('results');
+      if (recs.length === 0) {
+        results.innerHTML = '<div class="error-msg">לא נמצאו המלצות. נסה אמנים אחרים.</div>';
+        return;
+      }
+
+      results.innerHTML = `
+        <div class="panel">
+          <h2>🎧 ${recs.length} המלצות בשבילך</h2>
+          <div class="recs-grid">
+            ${recs.map((r, i) => renderCard(r, i + 1)).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderCard(r, rank) {
+      const imgStyle = r.image
+        ? `background-image: url('${escapeHtml(r.image)}');`
+        : '';
+      const tags = (r.tags || []).slice(0, 4).map(t =>
+        `<span class="rec-tag">${escapeHtml(t)}</span>`
+      ).join('');
+      const tracks = (r.top_tracks || []).slice(0, 3).map(t =>
+        `<li>♪ ${escapeHtml(t.name)}</li>`
+      ).join('');
+      const similar = r.similar_to && r.similar_to.length > 0
+        ? `דומה ל: ${escapeHtml(r.similar_to.slice(0, 2).join(', '))}`
+        : '';
+
+      return `
+        <div class="rec-card">
+          <div class="rec-image" style="${imgStyle}">
+            <span class="rec-rank">#${rank}</span>
+          </div>
+          <div class="rec-body">
+            <div class="rec-name">${escapeHtml(r.name)}</div>
+            ${tags ? `<div class="rec-tags">${tags}</div>` : ''}
+            ${similar ? `<div class="rec-similar">${similar}</div>` : ''}
+            ${tracks ? `<div class="rec-tracks"><h4>שירים מובילים:</h4><ul>${tracks}</ul></div>` : ''}
+            <div class="rec-actions">
+              <a href="${escapeHtml(r.spotify_search)}" target="_blank" rel="noopener" class="btn-spotify">Spotify</a>
+              <a href="${escapeHtml(r.soundcloud_search)}" target="_blank" rel="noopener" class="btn-soundcloud">SoundCloud</a>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // Events
+    // =========================================================================
+    document.getElementById('addBtn').onclick = () => {
+      const input = document.getElementById('artistInput');
+      addArtist(input.value);
+      input.value = '';
+      input.focus();
+    };
+
+    document.getElementById('artistInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') document.getElementById('addBtn').click();
+    });
+
+    document.getElementById('generateBtn').onclick = getRecommendations;
+
+    // Init
+    renderArtists();
+  </script>
+</body>
+</html>
