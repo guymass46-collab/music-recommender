@@ -1,6 +1,6 @@
 {
   "rewrites": [
-    { "source": "/", "destination": "/public/index.html" },
-    { "source": "/api/recommendations", "destination": "/api/recommendations.py" }
+    { "source": "/", "destination": "/index.html" },
+    { "source": "/api/recommendations", "destination": "/api/index" }
   ]
 }
