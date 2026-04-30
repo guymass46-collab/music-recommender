@@ -34,3 +34,5 @@ my_artists.json
 music_recommendations.txt
 music_app.py
 music_app.html
+
+.vercel

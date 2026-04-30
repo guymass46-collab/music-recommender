@@ -1,3 +1,1 @@
-# Vercel runs Python serverless functions natively.
-# This app uses only stdlib (urllib, json, http.server) — no external deps.
-# File kept empty intentionally; Vercel will detect Python runtime from vercel.json.
+
