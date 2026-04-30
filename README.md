@@ -155,3 +155,7 @@ git push -u origin main
 
 **טעינה ארוכה מ-30 שניות**
 → Vercel Hobby tier מגביל ל-30 שניות. אם זה קורה, הקטן את `MAX_RECOMMENDED_ARTISTS` ב-`recommendations.py`.
+
+# Last updated: 2026-04-30
+
+# Last updated: 2026-04-30
