@@ -7,6 +7,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&display=swap" rel="stylesheet" />
+
+  <!-- Google Identity Services -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -19,6 +23,7 @@
       --text: #f5f3ff;
       --text-dim: #a1a1aa;
       --danger: #ef4444;
+      --success: #10b981;
     }
 
     body {
@@ -56,14 +61,69 @@
     .container {
       max-width: 1200px;
       margin: 0 auto;
-      padding: 2rem 1.5rem;
+      padding: 1.5rem;
       position: relative;
       z-index: 1;
     }
 
+    /* ========================= TOP BAR ========================= */
+    .topbar {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      margin-bottom: 1rem;
+      min-height: 44px;
+    }
+
+    .auth-area { display: flex; align-items: center; gap: 0.75rem; }
+
+    .user-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      background: rgba(168, 85, 247, 0.15);
+      border: 1px solid var(--border);
+      padding: 0.35rem 0.85rem 0.35rem 0.5rem;
+      border-radius: 9999px;
+    }
+    .user-chip img {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    .user-chip .user-name {
+      font-size: 0.9rem;
+      max-width: 140px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .signout-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      padding: 0.4rem 0.9rem;
+      border-radius: 9999px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+      font-family: inherit;
+    }
+    .signout-btn:hover {
+      color: var(--danger);
+      border-color: var(--danger);
+    }
+
+    /* Google Sign-In button container */
+    #gsiButton {
+      min-height: 40px;
+    }
+
+    /* ========================= HEADER ========================= */
     header {
       text-align: center;
-      margin-bottom: 3rem;
+      margin-bottom: 2.5rem;
     }
     header h1 {
       font-size: 3rem;
@@ -79,6 +139,60 @@
       font-size: 1.1rem;
     }
 
+    /* ========================= TABS ========================= */
+    .tabs {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.5rem;
+    }
+    .tab {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      padding: 0.65rem 1.25rem;
+      border-radius: 0.5rem 0.5rem 0 0;
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+      transition: color 0.2s, background 0.2s;
+      position: relative;
+    }
+    .tab:hover {
+      color: var(--text);
+    }
+    .tab.active {
+      color: var(--text);
+      font-weight: 700;
+    }
+    .tab.active::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: -0.5rem;
+      height: 2px;
+      background: linear-gradient(135deg, var(--pink), var(--purple));
+      border-radius: 2px;
+    }
+    .tab-badge {
+      display: inline-block;
+      background: linear-gradient(135deg, var(--pink), var(--purple));
+      color: white;
+      font-size: 0.7rem;
+      padding: 0.1rem 0.45rem;
+      border-radius: 9999px;
+      margin-right: 0.4rem;
+      font-weight: 700;
+      vertical-align: middle;
+    }
+
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    /* ========================= PANELS ========================= */
     .panel {
       background: var(--bg-card);
       backdrop-filter: blur(20px);
@@ -94,7 +208,7 @@
       font-weight: 700;
     }
 
-    /* קלט הוספת אמן */
+    /* ========================= INPUT ========================= */
     .add-row {
       display: flex;
       gap: 0.75rem;
@@ -152,7 +266,7 @@
       border: 1px solid var(--border);
     }
 
-    /* תגיות אמנים */
+    /* ========================= ARTIST TAGS ========================= */
     .artists-list {
       display: flex;
       flex-wrap: wrap;
@@ -185,11 +299,18 @@
 
     .empty-state {
       color: var(--text-dim);
-      font-size: 0.9rem;
-      padding: 0.5rem 0;
+      font-size: 0.95rem;
+      padding: 2rem 1rem;
+      text-align: center;
+      line-height: 1.7;
+    }
+    .empty-state .icon {
+      font-size: 3rem;
+      display: block;
+      margin-bottom: 0.5rem;
     }
 
-    /* כפתור ייצור המלצות */
+    /* ========================= GENERATE ========================= */
     .generate-row {
       text-align: center;
       margin: 2rem 0;
@@ -199,7 +320,7 @@
       padding: 1rem 3rem;
     }
 
-    /* תצוגת המלצות */
+    /* ========================= REC GRID ========================= */
     .recs-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -212,6 +333,7 @@
       border-radius: 1rem;
       overflow: hidden;
       transition: transform 0.2s, border-color 0.2s;
+      position: relative;
     }
     .rec-card:hover {
       transform: translateY(-4px);
@@ -237,6 +359,36 @@
       font-size: 0.85rem;
       font-weight: 700;
     }
+
+    /* heart button overlaid on the image */
+    .heart-btn {
+      position: absolute;
+      top: 0.6rem;
+      left: 0.6rem;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(10px);
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.15rem;
+      transition: transform 0.15s, background 0.15s;
+      padding: 0;
+      z-index: 2;
+    }
+    .heart-btn:hover {
+      background: rgba(0, 0, 0, 0.75);
+      transform: scale(1.08);
+    }
+    .heart-btn:active { transform: scale(0.92); }
+    .heart-btn .heart-icon { line-height: 1; }
+    .heart-btn.is-favorite { background: rgba(236, 72, 153, 0.85); }
+    .heart-btn.is-favorite:hover { background: rgba(236, 72, 153, 1); }
+    .heart-btn:disabled { cursor: wait; opacity: 0.7; }
 
     .rec-body {
       padding: 1.25rem;
@@ -300,7 +452,7 @@
     .btn-spotify { background: #1DB954; color: white; }
     .btn-soundcloud { background: #FF5500; color: white; }
 
-    /* loader */
+    /* ========================= LOADER & MESSAGES ========================= */
     .loader {
       text-align: center;
       padding: 3rem;
@@ -329,69 +481,449 @@
       margin: 1rem 0;
     }
 
+    /* ========================= TOAST ========================= */
+    .toast {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(150%);
+      background: rgba(20, 12, 30, 0.95);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.85rem 1.5rem;
+      border-radius: 9999px;
+      font-size: 0.95rem;
+      font-weight: 500;
+      z-index: 1000;
+      transition: transform 0.3s ease;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+      pointer-events: none;
+    }
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+    }
+    .toast.success { border-color: var(--success); }
+    .toast.error { border-color: var(--danger); }
+
+    /* ========================= AUTH PROMPT ========================= */
+    .auth-prompt {
+      text-align: center;
+      padding: 3rem 1.5rem;
+    }
+    .auth-prompt .icon {
+      font-size: 4rem;
+      display: block;
+      margin-bottom: 1rem;
+    }
+    .auth-prompt h3 {
+      font-size: 1.5rem;
+      margin-bottom: 0.6rem;
+      font-weight: 700;
+    }
+    .auth-prompt p {
+      color: var(--text-dim);
+      margin-bottom: 1.5rem;
+      max-width: 420px;
+      margin-left: auto;
+      margin-right: auto;
+      line-height: 1.6;
+    }
+    #authPromptButton {
+      display: inline-flex;
+      justify-content: center;
+    }
+
     @media (max-width: 600px) {
       header h1 { font-size: 2rem; }
       .add-row { flex-direction: column; }
       .panel { padding: 1.25rem; }
+      .user-chip .user-name { max-width: 90px; }
+      .tab { padding: 0.5rem 0.85rem; font-size: 0.9rem; }
     }
   </style>
 </head>
 <body>
   <div class="container">
+
+    <!-- ============ TOP BAR (sign-in / user info) ============ -->
+    <div class="topbar">
+      <div class="auth-area" id="authArea">
+        <!-- Either #gsiButton (signed-out) or .user-chip (signed-in) goes here -->
+        <div id="gsiButton"></div>
+      </div>
+    </div>
+
     <header>
       <h1>🎵 Music Recommender</h1>
       <p>גילוי מוזיקה חדשה מבוסס על הטעם האישי שלך</p>
     </header>
 
-    <div class="panel">
-      <h2>האמנים שאתה אוהב</h2>
-      <div class="add-row">
-        <input type="text" id="artistInput" placeholder="הוסף שם של אמן (לדוגמה: Adam Ten)" maxlength="100" />
-        <button class="btn-secondary" id="addBtn">הוסף</button>
+    <!-- ============ TABS ============ -->
+    <div class="tabs" id="tabs">
+      <button class="tab active" data-tab="discover">✨ גילוי</button>
+      <button class="tab" data-tab="favorites">
+        ❤️ האהובים שלי
+        <span class="tab-badge" id="favBadge" style="display:none;">0</span>
+      </button>
+    </div>
+
+    <!-- ============ DISCOVER TAB ============ -->
+    <div class="tab-pane active" id="pane-discover">
+      <div class="panel">
+        <h2>האמנים שאתה אוהב</h2>
+        <div class="add-row">
+          <input type="text" id="artistInput" placeholder="הוסף שם של אמן (לדוגמה: Adam Ten)" maxlength="100" />
+          <button class="btn-secondary" id="addBtn">הוסף</button>
+        </div>
+        <div class="artists-list" id="artistsList"></div>
       </div>
-      <div class="artists-list" id="artistsList"></div>
+
+      <div class="generate-row">
+        <button class="btn-primary" id="generateBtn">✨ גלה לי מוזיקה חדשה</button>
+      </div>
+
+      <div id="results"></div>
     </div>
 
-    <div class="generate-row">
-      <button class="btn-primary" id="generateBtn">✨ גלה לי מוזיקה חדשה</button>
+    <!-- ============ FAVORITES TAB ============ -->
+    <div class="tab-pane" id="pane-favorites">
+      <div id="favoritesContent"></div>
     </div>
-
-    <div id="results"></div>
   </div>
+
+  <!-- ============ TOAST ============ -->
+  <div class="toast" id="toast"></div>
 
   <script>
     // =========================================================================
-    // State management - localStorage לשמירה בין סשנים
+    // Configuration
     // =========================================================================
     const STORAGE_KEY = 'music_app_artists';
+    const TOKEN_KEY = 'music_app_id_token';
+    const TOKEN_EXPIRY_KEY = 'music_app_token_expiry';
+    const USER_KEY = 'music_app_user';
     const DEFAULT_ARTISTS = [
       'Adam Ten', 'Mita Gami', 'Maccabi House',
       'Darco', 'Dodi', 'Yamagucci'
     ];
 
+    // GOOGLE_CLIENT_ID is injected at build time, but since we're serving HTML
+    // statically, we hardcode it here. It's safe - Client IDs are public.
+    const GOOGLE_CLIENT_ID =
+      '719623146826-elv07m9edj13hlkj0kaqni2dcd15e355.apps.googleusercontent.com';
+
+    // =========================================================================
+    // State
+    // =========================================================================
+    let artists = loadArtists();
+    let currentUser = loadUser();      // {id, email, name, picture} or null
+    let currentToken = loadToken();    // ID token (JWT) or null
+    let favorites = [];                // Array of saved artist objects
+    let lastRecommendations = [];      // Cached so we can re-render with heart state
+    let activeTab = 'discover';
+
+    // =========================================================================
+    // Storage helpers
+    // =========================================================================
     function loadArtists() {
       try {
         const stored = localStorage.getItem(STORAGE_KEY);
         if (stored) return JSON.parse(stored);
-      } catch (e) { /* ignore */ }
+      } catch (e) {}
       return [...DEFAULT_ARTISTS];
     }
-
-    function saveArtists(artists) {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(artists));
-      } catch (e) { /* ignore */ }
+    function saveArtists(arr) {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(arr)); } catch (e) {}
     }
 
-    let artists = loadArtists();
+    function loadUser() {
+      try {
+        const stored = localStorage.getItem(USER_KEY);
+        if (stored) return JSON.parse(stored);
+      } catch (e) {}
+      return null;
+    }
+    function saveUser(user) {
+      try {
+        if (user) localStorage.setItem(USER_KEY, JSON.stringify(user));
+        else localStorage.removeItem(USER_KEY);
+      } catch (e) {}
+    }
+
+    function loadToken() {
+      try {
+        const token = localStorage.getItem(TOKEN_KEY);
+        const expiry = parseInt(localStorage.getItem(TOKEN_EXPIRY_KEY) || '0', 10);
+        if (token && expiry > Date.now() / 1000) return token;
+      } catch (e) {}
+      return null;
+    }
+    function saveToken(token, expiresAt) {
+      try {
+        if (token) {
+          localStorage.setItem(TOKEN_KEY, token);
+          localStorage.setItem(TOKEN_EXPIRY_KEY, String(expiresAt));
+        } else {
+          localStorage.removeItem(TOKEN_KEY);
+          localStorage.removeItem(TOKEN_EXPIRY_KEY);
+        }
+      } catch (e) {}
+    }
 
     // =========================================================================
-    // UI rendering
+    // Utility
+    // =========================================================================
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+      })[c]);
+    }
+
+    function showToast(message, type = '') {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.className = 'toast show ' + type;
+      clearTimeout(toast._timer);
+      toast._timer = setTimeout(() => {
+        toast.className = 'toast ' + type;
+      }, 2500);
+    }
+
+    function decodeJwtPayload(token) {
+      try {
+        const parts = token.split('.');
+        if (parts.length !== 3) return null;
+        const payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        const padded = payload + '='.repeat((4 - payload.length % 4) % 4);
+        return JSON.parse(decodeURIComponent(escape(atob(padded))));
+      } catch (e) { return null; }
+    }
+
+    // =========================================================================
+    // GOOGLE SIGN-IN
+    // =========================================================================
+    function initGoogleSignIn() {
+      if (!window.google || !google.accounts || !google.accounts.id) {
+        // Library not loaded yet - retry
+        setTimeout(initGoogleSignIn, 200);
+        return;
+      }
+
+      google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: handleGoogleCredential,
+        auto_select: false,
+      });
+
+      // Render the sign-in button if user is not logged in
+      if (!currentUser) {
+        renderGsiButton('gsiButton');
+      }
+    }
+
+    function renderGsiButton(elementId) {
+      const el = document.getElementById(elementId);
+      if (!el || !window.google?.accounts?.id) return;
+      el.innerHTML = '';
+      google.accounts.id.renderButton(el, {
+        theme: 'filled_black',
+        size: 'medium',
+        text: 'signin_with',
+        shape: 'pill',
+        locale: 'he',
+      });
+    }
+
+    function handleGoogleCredential(response) {
+      const idToken = response.credential;
+      if (!idToken) {
+        showToast('שגיאת התחברות', 'error');
+        return;
+      }
+
+      // Decode the JWT to get user info immediately (we'll verify on server when needed)
+      const payload = decodeJwtPayload(idToken);
+      if (!payload) {
+        showToast('טוקן לא תקין', 'error');
+        return;
+      }
+
+      const user = {
+        id: payload.sub,
+        email: payload.email,
+        name: payload.name || payload.email,
+        picture: payload.picture || '',
+      };
+
+      currentUser = user;
+      currentToken = idToken;
+      saveUser(user);
+      saveToken(idToken, payload.exp);
+      renderAuthArea();
+
+      showToast(`שלום, ${user.name.split(' ')[0]}! 👋`, 'success');
+
+      // Load favorites in the background
+      loadFavorites();
+    }
+
+    function signOut() {
+      currentUser = null;
+      currentToken = null;
+      favorites = [];
+      saveUser(null);
+      saveToken(null);
+      renderAuthArea();
+      updateFavBadge();
+
+      // If user was on the favorites tab, refresh its content
+      if (activeTab === 'favorites') renderFavoritesPane();
+
+      // Re-render any visible recommendations to clear heart state
+      if (lastRecommendations.length) renderRecommendations(lastRecommendations);
+
+      // Re-disable Google one-tap
+      if (window.google?.accounts?.id) {
+        google.accounts.id.disableAutoSelect();
+      }
+
+      showToast('התנתקת בהצלחה');
+    }
+
+    function renderAuthArea() {
+      const area = document.getElementById('authArea');
+      if (!currentUser) {
+        area.innerHTML = '<div id="gsiButton"></div>';
+        // Wait a tick - the lib might not be loaded yet
+        setTimeout(() => renderGsiButton('gsiButton'), 50);
+        return;
+      }
+
+      const safeName = escapeHtml(currentUser.name || '');
+      const safePic = escapeHtml(currentUser.picture || '');
+      area.innerHTML = `
+        <div class="user-chip">
+          ${safePic ? `<img src="${safePic}" alt="" referrerpolicy="no-referrer" />` : ''}
+          <span class="user-name">${safeName}</span>
+        </div>
+        <button class="signout-btn" id="signoutBtn">התנתק</button>
+      `;
+      document.getElementById('signoutBtn').onclick = signOut;
+    }
+
+    // =========================================================================
+    // FAVORITES API
+    // =========================================================================
+    async function authedFetch(url, options = {}) {
+      const headers = { ...(options.headers || {}) };
+      if (currentToken) headers['Authorization'] = 'Bearer ' + currentToken;
+      const res = await fetch(url, { ...options, headers });
+      if (res.status === 401) {
+        // Token expired or invalid - sign out
+        showToast('ההתחברות פגה - התחבר מחדש', 'error');
+        signOut();
+        throw new Error('Authentication required');
+      }
+      return res;
+    }
+
+    async function loadFavorites() {
+      if (!currentUser) {
+        favorites = [];
+        updateFavBadge();
+        return;
+      }
+      try {
+        const res = await authedFetch('/api/favorites');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        favorites = data.favorites || [];
+        updateFavBadge();
+        if (activeTab === 'favorites') renderFavoritesPane();
+        // Re-render recommendations to update heart state
+        if (lastRecommendations.length) renderRecommendations(lastRecommendations);
+      } catch (e) {
+        // Silent failure - empty favorites is acceptable
+        favorites = [];
+        updateFavBadge();
+      }
+    }
+
+    async function toggleFavorite(artist, buttonEl) {
+      if (!currentUser) {
+        showToast('התחבר כדי לשמור אמנים', 'error');
+        switchTab('favorites');
+        return;
+      }
+
+      if (buttonEl) buttonEl.disabled = true;
+      const isFav = isFavorite(artist.name);
+
+      try {
+        if (isFav) {
+          const res = await authedFetch('/api/favorites/remove', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: artist.name }),
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          favorites = data.favorites || [];
+          showToast(`${artist.name} הוסר מהאהובים`);
+        } else {
+          const res = await authedFetch('/api/favorites/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ artist }),
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          favorites = data.favorites || [];
+          showToast(`❤️ ${artist.name} נוסף לאהובים`, 'success');
+        }
+        updateFavBadge();
+        // Update the heart state on this card
+        if (buttonEl) updateHeartButtonUI(buttonEl, artist.name);
+        // If the favorites tab is showing, re-render
+        if (activeTab === 'favorites') renderFavoritesPane();
+      } catch (e) {
+        showToast('שגיאה - נסה שוב', 'error');
+      } finally {
+        if (buttonEl) buttonEl.disabled = false;
+      }
+    }
+
+    function isFavorite(name) {
+      const lower = (name || '').toLowerCase();
+      return favorites.some(f => (f.name || '').toLowerCase() === lower);
+    }
+
+    function updateFavBadge() {
+      const badge = document.getElementById('favBadge');
+      if (!badge) return;
+      if (favorites.length > 0) {
+        badge.textContent = favorites.length;
+        badge.style.display = 'inline-block';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+
+    function updateHeartButtonUI(btn, artistName) {
+      const fav = isFavorite(artistName);
+      btn.classList.toggle('is-favorite', fav);
+      btn.setAttribute('aria-label', fav ? 'הסר מאהובים' : 'הוסף לאהובים');
+      btn.querySelector('.heart-icon').textContent = fav ? '❤️' : '🤍';
+    }
+
+    // =========================================================================
+    // ARTIST INPUT
     // =========================================================================
     function renderArtists() {
       const list = document.getElementById('artistsList');
       if (artists.length === 0) {
-        list.innerHTML = '<div class="empty-state">הרשימה ריקה — הוסף אמנים כדי להתחיל</div>';
+        list.innerHTML = '<div class="empty-state" style="padding:0.5rem 0;font-size:0.9rem;">הרשימה ריקה — הוסף אמנים כדי להתחיל</div>';
         return;
       }
       list.innerHTML = artists.map((a, i) => `
@@ -411,25 +943,19 @@
       });
     }
 
-    function escapeHtml(s) {
-      return String(s).replace(/[&<>"']/g, c => ({
-        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-      })[c]);
-    }
-
     function addArtist(name) {
       name = (name || '').trim();
       if (!name) return;
       if (name.length > 100) {
-        showError('שם ארוך מדי');
+        showToast('שם ארוך מדי', 'error');
         return;
       }
       if (artists.some(a => a.toLowerCase() === name.toLowerCase())) {
-        showError('האמן כבר ברשימה');
+        showToast('האמן כבר ברשימה', 'error');
         return;
       }
       if (artists.length >= 30) {
-        showError('הגעת למקסימום של 30 אמנים');
+        showToast('הגעת למקסימום של 30 אמנים', 'error');
         return;
       }
       artists.push(name);
@@ -437,20 +963,12 @@
       renderArtists();
     }
 
-    function showError(msg) {
-      const results = document.getElementById('results');
-      results.innerHTML = `<div class="error-msg">${escapeHtml(msg)}</div>`;
-      setTimeout(() => {
-        if (results.innerHTML.includes(msg)) results.innerHTML = '';
-      }, 3000);
-    }
-
     // =========================================================================
-    // API call
+    // RECOMMENDATIONS
     // =========================================================================
     async function getRecommendations() {
       if (artists.length === 0) {
-        showError('הוסף לפחות אמן אחד לפני גילוי');
+        showToast('הוסף לפחות אמן אחד לפני גילוי', 'error');
         return;
       }
 
@@ -478,7 +996,8 @@
         }
 
         const data = await response.json();
-        renderRecommendations(data.recommendations || []);
+        lastRecommendations = data.recommendations || [];
+        renderRecommendations(lastRecommendations);
       } catch (e) {
         results.innerHTML = `<div class="error-msg">שגיאה: ${escapeHtml(e.message)}</div>`;
       } finally {
@@ -497,13 +1016,14 @@
         <div class="panel">
           <h2>🎧 ${recs.length} המלצות בשבילך</h2>
           <div class="recs-grid">
-            ${recs.map((r, i) => renderCard(r, i + 1)).join('')}
+            ${recs.map((r, i) => renderCard(r, i + 1, false)).join('')}
           </div>
         </div>
       `;
+      attachCardEventListeners(results, recs);
     }
 
-    function renderCard(r, rank) {
+    function renderCard(r, rank, isFavoritesView) {
       const imgStyle = r.image
         ? `background-image: url('${escapeHtml(r.image)}');`
         : '';
@@ -517,10 +1037,26 @@
         ? `דומה ל: ${escapeHtml(r.similar_to.slice(0, 2).join(', '))}`
         : '';
 
+      const fav = isFavorite(r.name);
+      const heartLabel = fav ? 'הסר מאהובים' : 'הוסף לאהובים';
+      const heartIcon = fav ? '❤️' : '🤍';
+      const heartClass = fav ? 'heart-btn is-favorite' : 'heart-btn';
+
+      // In the favorites view, we don't show the rank chip
+      const rankChip = isFavoritesView ? '' : `<span class="rec-rank">#${rank}</span>`;
+
+      const spotifyUrl = r.spotify_search ||
+        ('https://open.spotify.com/search/' + encodeURIComponent(r.name));
+      const soundcloudUrl = r.soundcloud_search ||
+        ('https://soundcloud.com/search?q=' + encodeURIComponent(r.name));
+
       return `
-        <div class="rec-card">
+        <div class="rec-card" data-artist-name="${escapeHtml(r.name)}">
           <div class="rec-image" style="${imgStyle}">
-            <span class="rec-rank">#${rank}</span>
+            <button class="${heartClass}" data-heart="1" aria-label="${heartLabel}">
+              <span class="heart-icon">${heartIcon}</span>
+            </button>
+            ${rankChip}
           </div>
           <div class="rec-body">
             <div class="rec-name">${escapeHtml(r.name)}</div>
@@ -528,16 +1064,101 @@
             ${similar ? `<div class="rec-similar">${similar}</div>` : ''}
             ${tracks ? `<div class="rec-tracks"><h4>שירים מובילים:</h4><ul>${tracks}</ul></div>` : ''}
             <div class="rec-actions">
-              <a href="${escapeHtml(r.spotify_search)}" target="_blank" rel="noopener" class="btn-spotify">Spotify</a>
-              <a href="${escapeHtml(r.soundcloud_search)}" target="_blank" rel="noopener" class="btn-soundcloud">SoundCloud</a>
+              <a href="${escapeHtml(spotifyUrl)}" target="_blank" rel="noopener" class="btn-spotify">Spotify</a>
+              <a href="${escapeHtml(soundcloudUrl)}" target="_blank" rel="noopener" class="btn-soundcloud">SoundCloud</a>
             </div>
           </div>
         </div>
       `;
     }
 
+    function attachCardEventListeners(container, items) {
+      const itemsByName = new Map(items.map(it => [it.name, it]));
+      container.querySelectorAll('.rec-card').forEach(card => {
+        const name = card.dataset.artistName;
+        const item = itemsByName.get(name);
+        if (!item) return;
+        const heartBtn = card.querySelector('[data-heart]');
+        if (heartBtn) {
+          heartBtn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleFavorite(item, heartBtn);
+          };
+        }
+      });
+    }
+
     // =========================================================================
-    // Events
+    // FAVORITES PANE
+    // =========================================================================
+    function renderFavoritesPane() {
+      const container = document.getElementById('favoritesContent');
+
+      // Not logged in - show auth prompt
+      if (!currentUser) {
+        container.innerHTML = `
+          <div class="panel">
+            <div class="auth-prompt">
+              <span class="icon">❤️</span>
+              <h3>שמור את האמנים שאתה אוהב</h3>
+              <p>התחבר עם Google כדי לשמור אמנים מועדפים, לחזור אליהם בכל פעם, ולגלות עוד מוזיקה דומה.</p>
+              <div id="authPromptButton"></div>
+            </div>
+          </div>
+        `;
+        // Render a Google Sign-In button inside the prompt
+        renderGsiButton('authPromptButton');
+        return;
+      }
+
+      // Logged in but no favorites yet
+      if (favorites.length === 0) {
+        container.innerHTML = `
+          <div class="panel">
+            <div class="empty-state">
+              <span class="icon">🎵</span>
+              <p>עדיין לא שמרת אמנים.<br/>
+              לך ללשונית "גילוי", מצא המלצות ולחץ על ❤️ כדי לשמור.</p>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      // Show the favorites grid (newest first)
+      const sorted = favorites.slice().sort((a, b) =>
+        (b.added_at || 0) - (a.added_at || 0));
+
+      container.innerHTML = `
+        <div class="panel">
+          <h2>❤️ ${favorites.length} אמנים שאתה אוהב</h2>
+          <div class="recs-grid">
+            ${sorted.map((r, i) => renderCard(r, i + 1, true)).join('')}
+          </div>
+        </div>
+      `;
+      attachCardEventListeners(container, sorted);
+    }
+
+    // =========================================================================
+    // TABS
+    // =========================================================================
+    function switchTab(tabName) {
+      activeTab = tabName;
+      document.querySelectorAll('.tab').forEach(t => {
+        t.classList.toggle('active', t.dataset.tab === tabName);
+      });
+      document.querySelectorAll('.tab-pane').forEach(p => {
+        p.classList.toggle('active', p.id === 'pane-' + tabName);
+      });
+      if (tabName === 'favorites') {
+        renderFavoritesPane();
+      }
+    }
+
+    // =========================================================================
+    // EVENTS
     // =========================================================================
     document.getElementById('addBtn').onclick = () => {
       const input = document.getElementById('artistInput');
@@ -552,8 +1173,17 @@
 
     document.getElementById('generateBtn').onclick = getRecommendations;
 
-    // Init
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.onclick = () => switchTab(tab.dataset.tab);
+    });
+
+    // =========================================================================
+    // INIT
+    // =========================================================================
     renderArtists();
+    renderAuthArea();
+    initGoogleSignIn();
+    if (currentUser) loadFavorites();
   </script>
 </body>
 </html>
