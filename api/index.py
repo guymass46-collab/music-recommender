@@ -2,22 +2,15 @@
 ===============================================================================
  Music Recommender - Vercel Serverless Function
 ===============================================================================
- Endpoint: POST /api/recommendations
- Body: { "artists": ["Adam Ten", "Mita Gami", ...] }
- Returns: { "recommendations": [...] }
-
- Security:
-   - API key נטען ממשתני סביבה (LASTFM_API_KEY)
-   - CORS מוגדר רק לדומיין הפרודקשן
-   - Rate limiting בסיסי דרך Vercel headers
+ Endpoints:
+   GET  /             -> serves index.html
+   POST /api/recommendations -> returns recommendations
 ===============================================================================
 """
 
 from http.server import BaseHTTPRequestHandler
 import json
 import os
-import re
-import time
 import urllib.parse
 import urllib.request
 import urllib.error
@@ -27,10 +20,10 @@ import urllib.error
 # Configuration
 # =========================================================================
 LASTFM_API_KEY = os.environ.get("LASTFM_API_KEY", "")
-ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "*")  # ב-production: הדומיין שלך
+ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "*")
 SIMILAR_PER_ARTIST = 10
 MAX_RECOMMENDED_ARTISTS = 25
-MAX_INPUT_ARTISTS = 30  # הגנה - לא מאפשרים יותר מ-30 אמנים בבקשה אחת
+MAX_INPUT_ARTISTS = 30
 
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -44,7 +37,6 @@ USER_AGENT = (
 # =========================================================================
 
 def lastfm_request(method, params, timeout=10):
-    """קריאה כללית ל-Last.fm API"""
     base = "http://ws.audioscrobbler.com/2.0/"
     params = {**params, "method": method, "api_key": LASTFM_API_KEY, "format": "json"}
     url = base + "?" + urllib.parse.urlencode(params)
@@ -57,7 +49,6 @@ def lastfm_request(method, params, timeout=10):
 
 
 def get_similar_artists(artist_name, limit=10):
-    """מחזיר רשימת אמנים דומים מ-Last.fm"""
     data = lastfm_request("artist.getSimilar", {
         "artist": artist_name,
         "limit": limit,
@@ -82,7 +73,6 @@ def get_similar_artists(artist_name, limit=10):
 
 
 def get_top_tracks(artist_name, limit=3):
-    """מחזיר את השירים הכי פופולריים של אמן"""
     data = lastfm_request("artist.getTopTracks", {
         "artist": artist_name,
         "limit": limit,
@@ -102,7 +92,6 @@ def get_top_tracks(artist_name, limit=3):
 
 
 def get_artist_tags(artist_name, limit=5):
-    """מחזיר תגיות (ז'אנרים) של אמן"""
     data = lastfm_request("artist.getTopTags", {
         "artist": artist_name,
         "autocorrect": 1,
@@ -114,6 +103,27 @@ def get_artist_tags(artist_name, limit=5):
 
 
 # =========================================================================
+# Helper: locate index.html on the Vercel filesystem
+# =========================================================================
+
+def _read_index_html():
+    possible_paths = [
+        "index.html",
+        "../index.html",
+        "/var/task/index.html",
+        "/vercel/path0/index.html",
+        os.path.join(os.path.dirname(__file__), "..", "index.html"),
+    ]
+    for path in possible_paths:
+        try:
+            with open(path, "rb") as f:
+                return f.read()
+        except (FileNotFoundError, OSError):
+            continue
+    return None
+
+
+# =========================================================================
 # Main handler
 # =========================================================================
 
@@ -122,7 +132,7 @@ class handler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Access-Control-Allow-Origin", ALLOWED_ORIGIN)
-        self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
         self.wfile.write(json.dumps(body, ensure_ascii=False).encode("utf-8"))
@@ -130,6 +140,21 @@ class handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         # CORS preflight
         self._send(204, {})
+
+    def do_GET(self):
+        """מגיש את index.html לכל בקשת GET"""
+        html_content = _read_index_html()
+        if html_content is None:
+            self.send_response(404)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(b"index.html not found")
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Cache-Control", "no-cache")
+        self.end_headers()
+        self.wfile.write(html_content)
 
     def do_POST(self):
         # ---- 1. בדיקת תקינות בקשה ----
@@ -139,7 +164,7 @@ class handler(BaseHTTPRequestHandler):
 
         try:
             length = int(self.headers.get("Content-Length", 0))
-            if length > 10000:  # מגבלה על גודל בקשה (10KB)
+            if length > 10000:
                 self._send(413, {"error": "Request too large"})
                 return
             body = self.rfile.read(length).decode("utf-8")
@@ -154,11 +179,10 @@ class handler(BaseHTTPRequestHandler):
             return
 
         # ---- 2. ניקוי קלט והגנה ----
-        # מקבלים רק מחרוזות, מנקים, חותכים אורך, מגבילים כמות
         clean_artists = []
         for a in artists[:MAX_INPUT_ARTISTS]:
             if isinstance(a, str):
-                name = a.strip()[:100]  # מקסימום 100 תווים
+                name = a.strip()[:100]
                 if name:
                     clean_artists.append(name)
 
@@ -207,7 +231,6 @@ class handler(BaseHTTPRequestHandler):
                 "spotify_search": f"https://open.spotify.com/search/{urllib.parse.quote(name)}",
                 "soundcloud_search": f"https://soundcloud.com/search?q={urllib.parse.quote(name)}",
             }
-            # רק לעשרת המובילים נטען מידע נוסף - חוסך זמן וקריאות API
             if i < 10:
                 entry["top_tracks"] = get_top_tracks(name, limit=3)
                 entry["tags"] = get_artist_tags(name, limit=5)
