@@ -15,13 +15,6 @@
    - Deezer   -> artist images (free, no auth required)
    - Upstash Redis (KV) -> per-user favorites storage
    - Google Identity Services -> user authentication
-
- Auth model:
-   - Frontend uses Google Identity Services to get an ID Token (JWT)
-   - All authenticated requests pass the token in the "Authorization" header:
-       Authorization: Bearer <id_token>
-   - Backend verifies the token by calling Google's tokeninfo endpoint
-   - User is identified by the "sub" claim (a stable Google user ID)
 ===============================================================================
 """
 
@@ -79,24 +72,6 @@ def _http_get_json(url, timeout=8):
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read().decode("utf-8"))
-    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError):
-        return None
-
-
-def _http_request_json(method, url, headers=None, body=None, timeout=8):
-    """Generic JSON HTTP request - used for Upstash REST API calls."""
-    headers = headers or {}
-    headers.setdefault("User-Agent", USER_AGENT)
-    data = None
-    if body is not None:
-        data = json.dumps(body).encode("utf-8")
-        headers.setdefault("Content-Type", "application/json")
-
-    req = urllib.request.Request(url, headers=headers, data=data, method=method)
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            content = resp.read().decode("utf-8")
-            return json.loads(content) if content else {}
     except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError):
         return None
 
@@ -194,21 +169,11 @@ def get_deezer_image(artist_name):
 
 
 # =========================================================================
-# Google OAuth - verify ID Token using Google's tokeninfo endpoint
+# Google OAuth - verify ID Token
 # =========================================================================
 
 def verify_google_id_token(id_token):
-    """
-    Verifies a Google ID Token by calling Google's tokeninfo endpoint.
-    This is the simplest approach - no need for cryptography libraries.
-    Returns the user info dict if valid, None otherwise.
-
-    Validates:
-    - Token signature (Google does this)
-    - Token expiry
-    - Audience matches our GOOGLE_CLIENT_ID
-    - Issuer is google
-    """
+    """Verifies a Google ID Token via Google's tokeninfo endpoint."""
     if not id_token or not GOOGLE_CLIENT_ID:
         return None
 
@@ -217,16 +182,13 @@ def verify_google_id_token(id_token):
     if not data:
         return None
 
-    # Check audience matches our client ID
     if data.get("aud") != GOOGLE_CLIENT_ID:
         return None
 
-    # Check issuer
     iss = data.get("iss", "")
     if iss not in ("accounts.google.com", "https://accounts.google.com"):
         return None
 
-    # Check expiry
     try:
         exp = int(data.get("exp", 0))
         if exp < time.time():
@@ -234,12 +196,11 @@ def verify_google_id_token(id_token):
     except (ValueError, TypeError):
         return None
 
-    # Email verified
     if data.get("email_verified") not in (True, "true"):
         return None
 
     return {
-        "sub": data.get("sub", ""),       # stable Google user ID
+        "sub": data.get("sub", ""),
         "email": data.get("email", ""),
         "name": data.get("name", ""),
         "picture": data.get("picture", ""),
@@ -247,7 +208,6 @@ def verify_google_id_token(id_token):
 
 
 def _extract_bearer_token(auth_header):
-    """Extracts the token from 'Authorization: Bearer <token>' header."""
     if not auth_header:
         return None
     parts = auth_header.split(None, 1)
@@ -257,32 +217,61 @@ def _extract_bearer_token(auth_header):
 
 
 # =========================================================================
-# Upstash Redis helpers (HTTP REST API)
+# Upstash Redis helpers - USES CORRECT REST API FORMAT
 # =========================================================================
+# Upstash REST API accepts commands as a JSON ARRAY in the request BODY:
+#     POST https://<endpoint>.upstash.io
+#     Authorization: Bearer <token>
+#     Content-Type: application/json
+#     Body: ["SET", "mykey", "myvalue"]
+#
+# The response format:
+#     {"result": <return value>}   on success
+#     {"error": "<error message>"} on failure
 
-def _kv_request(*command_parts):
+def _kv_command(*command_parts):
     """
-    Sends a Redis command via Upstash REST API.
-    Example: _kv_request("SMEMBERS", "fav:user_123")
-    Returns the parsed result, or None on failure.
+    Sends a Redis command to Upstash via HTTP POST with JSON body.
+    Returns the raw response dict, or None on network/auth failure.
+
+    Example: _kv_command("SET", "fav:user_123", '{"data":"..."}')
     """
     if not KV_REST_API_URL or not KV_REST_API_TOKEN:
         return None
 
-    # Upstash REST API expects each command part as a separate URL segment
-    url = KV_REST_API_URL.rstrip("/") + "/" + "/".join(
-        urllib.parse.quote(str(p), safe="") for p in command_parts
+    body = json.dumps([str(p) for p in command_parts]).encode("utf-8")
+    headers = {
+        "Authorization": f"Bearer {KV_REST_API_TOKEN}",
+        "Content-Type": "application/json",
+        "User-Agent": USER_AGENT,
+    }
+    req = urllib.request.Request(
+        KV_REST_API_URL.rstrip("/"),
+        data=body,
+        headers=headers,
+        method="POST",
     )
-    headers = {"Authorization": f"Bearer {KV_REST_API_TOKEN}"}
-    return _http_request_json("GET", url, headers=headers, timeout=6)
+    try:
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            content = resp.read().decode("utf-8")
+            return json.loads(content) if content else {}
+    except urllib.error.HTTPError as e:
+        # Read the error response body to see what Upstash said
+        try:
+            content = e.read().decode("utf-8")
+            return json.loads(content) if content else {"error": f"HTTP {e.code}"}
+        except Exception:
+            return {"error": f"HTTP {e.code}"}
+    except (urllib.error.URLError, TimeoutError, ValueError):
+        return None
 
 
 def kv_get_favorites(user_id):
-    """Returns the user's favorites as a list of dicts. Empty list if none."""
+    """Returns the user's favorites as a list. Empty list if none or on error."""
     if not user_id:
         return []
     key = f"fav:{user_id}"
-    result = _kv_request("GET", key)
+    result = _kv_command("GET", key)
     if not result or "result" not in result or not result["result"]:
         return []
     try:
@@ -292,17 +281,20 @@ def kv_get_favorites(user_id):
 
 
 def kv_set_favorites(user_id, favorites_list):
-    """Replaces the user's entire favorites list."""
+    """Replaces the user's entire favorites list. Returns True on success."""
     if not user_id:
         return False
     key = f"fav:{user_id}"
     payload = json.dumps(favorites_list, ensure_ascii=False)
-    result = _kv_request("SET", key, payload)
-    return bool(result and result.get("result") == "OK")
+    result = _kv_command("SET", key, payload)
+    if not result:
+        return False
+    # Upstash returns {"result": "OK"} on successful SET
+    return result.get("result") == "OK"
 
 
 # =========================================================================
-# Helper: locate index.html on the Vercel filesystem
+# Helper: locate index.html
 # =========================================================================
 
 def _read_index_html():
@@ -323,11 +315,10 @@ def _read_index_html():
 
 
 # =========================================================================
-# Recommendation logic (extracted from POST handler)
+# Recommendation logic
 # =========================================================================
 
 def build_recommendations(input_artists):
-    """Returns the recommendations payload for a list of input artist names."""
     artist_scores = {}
     known = {a.lower() for a in input_artists}
 
@@ -384,8 +375,6 @@ def build_recommendations(input_artists):
 # =========================================================================
 
 class handler(BaseHTTPRequestHandler):
-    # ----- low-level response helpers -----
-
     def _send(self, status, body):
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
@@ -396,7 +385,6 @@ class handler(BaseHTTPRequestHandler):
         self.wfile.write(json.dumps(body, ensure_ascii=False).encode("utf-8"))
 
     def _read_json_body(self):
-        """Reads and parses JSON body. Raises ValueError on bad input."""
         length = int(self.headers.get("Content-Length", 0))
         if length > 50000:
             raise ValueError("Request too large")
@@ -404,27 +392,16 @@ class handler(BaseHTTPRequestHandler):
         return json.loads(body) if body else {}
 
     def _authed_user(self):
-        """
-        Extracts and verifies the Google ID token from the Authorization header.
-        Returns the user info dict, or None if not authenticated.
-        """
         auth = self.headers.get("Authorization", "")
         token = _extract_bearer_token(auth)
         if not token:
             return None
         return verify_google_id_token(token)
 
-    # ----- HTTP method handlers -----
-
     def do_OPTIONS(self):
-        # CORS preflight
         self._send(204, {})
 
     def do_GET(self):
-        """
-        GET /api/favorites    -> returns favorites list for the authenticated user
-        GET anything else     -> serves index.html
-        """
         path = self.path.split("?", 1)[0]
 
         if path == "/api/favorites":
@@ -436,7 +413,24 @@ class handler(BaseHTTPRequestHandler):
             self._send(200, {"favorites": favorites, "count": len(favorites)})
             return
 
-        # Serve index.html for any other GET
+        # Diagnostic endpoint - lets us verify KV wiring without touching auth
+        if path == "/api/health":
+            has_kv_url = bool(KV_REST_API_URL)
+            has_kv_token = bool(KV_REST_API_TOKEN)
+            kv_ping = None
+            if has_kv_url and has_kv_token:
+                result = _kv_command("PING")
+                kv_ping = result.get("result") if result else "no_response"
+            self._send(200, {
+                "ok": True,
+                "has_kv_url": has_kv_url,
+                "has_kv_token": has_kv_token,
+                "has_lastfm_key": bool(LASTFM_API_KEY),
+                "has_google_client_id": bool(GOOGLE_CLIENT_ID),
+                "kv_ping": kv_ping,
+            })
+            return
+
         html_content = _read_index_html()
         if html_content is None:
             self.send_response(404)
@@ -451,9 +445,6 @@ class handler(BaseHTTPRequestHandler):
         self.wfile.write(html_content)
 
     def do_POST(self):
-        """
-        Routes POST requests by path.
-        """
         path = self.path.split("?", 1)[0]
 
         # ----- POST /api/auth/verify -----
@@ -502,7 +493,6 @@ class handler(BaseHTTPRequestHandler):
                 self._send(400, {"error": "Missing artist data"})
                 return
 
-            # Sanitize artist data - keep only known fields
             clean_artist = {
                 "name": str(artist.get("name", ""))[:200],
                 "image": str(artist.get("image", ""))[:500],
@@ -514,13 +504,11 @@ class handler(BaseHTTPRequestHandler):
 
             favorites = kv_get_favorites(user["sub"])
 
-            # Already in favorites? - just return current list
             if any(f.get("name", "").lower() == clean_artist["name"].lower()
                    for f in favorites):
                 self._send(200, {"favorites": favorites, "added": False, "reason": "Already in favorites"})
                 return
 
-            # Enforce per-user limit
             if len(favorites) >= MAX_FAVORITES_PER_USER:
                 self._send(400, {
                     "error": f"Favorites limit reached ({MAX_FAVORITES_PER_USER})",
@@ -558,7 +546,6 @@ class handler(BaseHTTPRequestHandler):
             new_favorites = [f for f in favorites
                              if f.get("name", "").lower() != name.lower()]
             if len(new_favorites) == len(favorites):
-                # Nothing was removed
                 self._send(200, {"favorites": favorites, "removed": False})
                 return
 
@@ -569,7 +556,7 @@ class handler(BaseHTTPRequestHandler):
             self._send(200, {"favorites": new_favorites, "removed": True})
             return
 
-        # ----- POST /api/recommendations  (default - unchanged behavior) -----
+        # ----- POST /api/recommendations -----
         if not LASTFM_API_KEY:
             self._send(500, {"error": "Server misconfiguration: API key missing"})
             return
@@ -585,7 +572,6 @@ class handler(BaseHTTPRequestHandler):
             self._send(400, {"error": "Missing 'artists' list"})
             return
 
-        # Sanitize input
         clean_artists = []
         for a in artists[:MAX_INPUT_ARTISTS]:
             if isinstance(a, str):
